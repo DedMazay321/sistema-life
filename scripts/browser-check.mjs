@@ -1,0 +1,148 @@
+import { chromium } from '@playwright/test'
+import assert from 'node:assert/strict'
+import { spawn } from 'node:child_process'
+import { mkdir, readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const artifacts = path.join(root, 'artifacts')
+await mkdir(artifacts, { recursive: true })
+const server = spawn(process.execPath, [path.join(root, 'node_modules/vite/bin/vite.js'), 'preview', '--host', '127.0.0.1', '--port', '4173'], { cwd: root, stdio: 'pipe' })
+let serverOutput = ''
+server.stdout.on('data', (chunk) => { serverOutput += chunk })
+server.stderr.on('data', (chunk) => { serverOutput += chunk })
+const errors = []
+const missing = []
+let browser
+try {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    try { const response = await fetch('http://127.0.0.1:4173/'); if (response.ok) break } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  browser = await chromium.launch({ headless: true })
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: 'ru-RU', acceptDownloads: true })
+  const page = await context.newPage()
+  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
+  page.on('pageerror', (error) => errors.push(error.message))
+  page.on('response', (response) => { if (response.status() === 404) missing.push(response.url()) })
+  await page.goto('http://127.0.0.1:4173/', { waitUntil: 'networkidle' })
+  await page.evaluate(() => document.fonts.ready)
+  await page.getByRole('heading', { name: 'Стань сильнее, чем вчера.' }).waitFor()
+  assert.equal(await page.locator('.quest-list > .quest-card').count(), 6)
+  await page.screenshot({ path: path.join(artifacts, 'desktop.png'), fullPage: true })
+
+  await page.evaluate(() => navigator.serviceWorker.ready)
+  const firstCheck = page.locator('.quest-list .quest-check').first()
+  const firstTitle = await page.locator('.quest-list .quest-card h3').first().textContent()
+  await firstCheck.click()
+  let saved = await page.evaluate(() => JSON.parse(localStorage.getItem('sistema.web.player.v4')))
+  assert.ok(saved.totalXp > 0)
+  assert.equal(Object.values(saved.history)[0].length, 1)
+  await page.locator('.quest-list .journal-button').first().click()
+  await page.getByLabel('Что получилось на самом деле?').fill('Сделано осознанно: 3 подхода, техника сохранена.')
+  await page.getByRole('button', { name: 'Сохранить запись' }).click()
+  await page.getByRole('dialog').waitFor({ state: 'detached' })
+  saved = await page.evaluate(() => JSON.parse(localStorage.getItem('sistema.web.player.v4')))
+  assert.ok(Object.values(saved.journal)[0])
+  await page.reload({ waitUntil: 'networkidle' })
+  assert.equal(await page.locator('.quest-list .is-complete').count(), 1)
+  await page.locator('.quest-list .quest-check').first().click()
+  saved = await page.evaluate(() => JSON.parse(localStorage.getItem('sistema.web.player.v4')))
+  assert.equal(saved.totalXp, 0)
+  await page.locator('.quest-list .quest-check').first().click()
+
+  await page.locator('.sidebar nav').getByRole('button', { name: 'Каталог' }).click()
+  await page.getByPlaceholder('Найти задание или действие…').fill('Отжимания')
+  assert.ok(await page.locator('.catalog-grid .quest-card').count() >= 1)
+  await page.getByPlaceholder('Найти задание или действие…').fill('')
+  await page.getByRole('button', { name: 'Финансы', exact: true }).click()
+  assert.ok(await page.locator('.catalog-grid .quest-card').count() > 0)
+
+  await page.locator('.sidebar nav').getByRole('button', { name: 'Цели', exact: true }).click()
+  await page.getByRole('button', { name: 'Новая задача' }).click()
+  await page.getByLabel('Название').fill('Проверочная привычка')
+  await page.getByLabel('Критерий выполнения').fill('Десять минут чтения и одна записанная мысль после завершения.')
+  await page.getByLabel('Награда, XP').fill('25')
+  await page.getByRole('button', { name: 'Добавить задачу' }).click()
+  await page.getByRole('heading', { name: 'Проверочная привычка' }).waitFor()
+  await page.getByRole('button', { name: 'Установить цель', exact: true }).click()
+  await page.getByLabel('Недельная цель').fill('Завершить три учебных урока и записать выводы по каждому.')
+  await page.getByRole('dialog').getByRole('button', { name: 'Установить цель', exact: true }).click()
+  await page.locator('.sidebar nav').getByRole('button', { name: 'Сегодня' }).click()
+  await page.getByRole('button', { name: 'Завершить цель', exact: true }).click()
+  saved = await page.evaluate(() => JSON.parse(localStorage.getItem('sistema.web.player.v4')))
+  assert.equal(saved.weeklyDone.length, 1)
+
+  await page.locator('.sidebar nav').getByRole('button', { name: 'Награды' }).click()
+  assert.equal(await page.locator('.achievement-card').count(), 18)
+  await page.locator('.sidebar nav').getByRole('button', { name: 'Ещё', exact: true }).click()
+  await page.getByText('Сделано осознанно: 3 подхода, техника сохранена.').waitFor()
+  await page.getByRole('button', { name: 'Аналитика' }).click()
+  await page.getByRole('heading', { name: 'Действия за 7 дней' }).waitFor()
+  await page.getByRole('button', { name: 'Настройки', exact: true }).last().click()
+  await page.getByRole('button', { name: /Вызов 125%/ }).click()
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Экспорт JSON' }).click()
+  const download = await downloadPromise
+  const downloadPath = await download.path()
+  const exported = JSON.parse(await readFile(downloadPath, 'utf8'))
+  assert.equal(exported.customTasks[0].title, 'Проверочная привычка')
+  await page.locator('input[type=file]').setInputFiles(downloadPath)
+  await page.getByText('Прогресс восстановлен из копии.').waitFor()
+
+  await page.getByRole('button', { name: 'Установить PIN' }).click()
+  await page.getByLabel('PIN', { exact: true }).fill('1234')
+  await page.getByLabel('Повтор').fill('1234')
+  await page.getByRole('button', { name: 'Сохранить PIN' }).click()
+  await page.getByRole('button', { name: 'Заблокировать', exact: true }).click()
+  await page.getByLabel('PIN-код').fill('1234')
+  await page.getByRole('button', { name: 'Разблокировать' }).click()
+  await page.getByRole('heading', { name: 'Летопись, аналитика и настройки' }).waitFor()
+
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.getByLabel('PIN-код').fill('1234')
+  await page.getByRole('button', { name: 'Разблокировать' }).click()
+  await page.locator('.sidebar nav').getByRole('button', { name: 'Сегодня' }).click()
+  await page.evaluate(() => navigator.serviceWorker.ready)
+  await context.setOffline(true)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.getByLabel('PIN-код').fill('1234')
+  await page.getByRole('button', { name: 'Разблокировать' }).click()
+  await page.getByText(firstTitle, { exact: true }).first().waitFor()
+  await context.setOffline(false)
+
+  const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true, locale: 'ru-RU' })
+  const mobilePage = await mobile.newPage()
+  mobilePage.on('console', (message) => { if (message.type() === 'error') errors.push(`mobile: ${message.text()}`) })
+  mobilePage.on('pageerror', (error) => errors.push(`mobile: ${error.message}`))
+  mobilePage.on('response', (response) => { if (response.status() === 404) missing.push(response.url()) })
+  await mobilePage.goto('http://127.0.0.1:4173/', { waitUntil: 'networkidle' })
+  await mobilePage.evaluate(() => document.fonts.ready)
+  await mobilePage.getByRole('heading', { name: 'Стань сильнее, чем вчера.' }).waitFor()
+  assert.equal(await mobilePage.locator('.mobile-nav').isVisible(), true)
+  assert.ok(await mobilePage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+  await mobilePage.screenshot({ path: path.join(artifacts, 'mobile.png'), fullPage: true })
+  await mobilePage.locator('.mobile-nav').getByRole('button', { name: 'Каталог' }).click()
+  await mobilePage.getByPlaceholder('Найти задание или действие…').fill('медитация')
+  assert.ok(await mobilePage.locator('.catalog-grid .quest-card').count() >= 1)
+  await mobilePage.waitForTimeout(450)
+  await mobilePage.screenshot({ path: path.join(artifacts, 'mobile-catalog.png'), fullPage: true })
+  await mobile.close()
+
+  assert.deepEqual(errors, [], `Console errors: ${errors.join('\n')}`)
+  assert.deepEqual(missing, [], `404 responses: ${missing.join('\n')}`)
+  console.log('PASS: desktop + mobile, quests, undo, journal, reload, search, custom task, weekly goal, rewards, export/import, PIN, service worker, offline.')
+  console.log(`Screenshots: ${artifacts}`)
+} catch (error) {
+  console.error(error)
+  if (errors.length) console.error('Browser errors:', errors)
+  if (missing.length) console.error('404:', missing)
+  process.exitCode = 1
+} finally {
+  if (browser) await browser.close()
+  server.kill('SIGTERM')
+  await new Promise((resolve) => { server.once('exit', resolve); setTimeout(resolve, 2000) })
+  if (server.exitCode === null && server.signalCode === null) server.kill('SIGKILL')
+  if (process.exitCode) console.error(serverOutput)
+}

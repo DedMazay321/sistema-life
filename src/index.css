@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face{font-family:Onest;src:url('/fonts/onest-cyrillic.woff2') format('woff2');font-style:normal;font-weight:100 900;font-display:swap;unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:Onest;src:url('/fonts/onest-latin.woff2') format('woff2');font-style:normal;font-weight:100 900;font-display:swap;unicode-range:U+0000-00FF,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215}
+@font-face{font-family:Unbounded;src:url('/fonts/unbounded-cyrillic.woff2') format('woff2');font-style:normal;font-weight:400 800;font-display:swap;unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:Unbounded;src:url('/fonts/unbounded-latin.woff2') format('woff2');font-style:normal;font-weight:400 800;font-display:swap;unicode-range:U+0000-00FF,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215}
+:root{font-family:Onest,'Segoe UI',Arial,sans-serif;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;color-scheme:dark;background:#070b10}
+html{scroll-behavior:smooth;min-width:320px}body{min-width:320px;min-height:100vh}button,a,input,textarea,select{-webkit-tap-highlight-color:transparent}button:focus-visible,a:focus-visible{outline:2px solid #65e6ef;outline-offset:3px}::selection{background:rgba(101,230,239,.25);color:#fff}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:#080d12}::-webkit-scrollbar-thumb{background:#23343e;border-radius:8px}::-webkit-scrollbar-thumb:hover{background:#304753}
