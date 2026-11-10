@@ -36,6 +36,7 @@ jobs:
           SISTEMA_KEY_PASSWORD: ${{ secrets.SISTEMA_KEY_PASSWORD }}
         run: |
           test -n "$SISTEMA_KEYSTORE_PASSWORD" && test -n "$SISTEMA_KEY_ALIAS" && test -n "$SISTEMA_KEY_PASSWORD"
+          chmod +x gradlew
           ./gradlew assembleRelease
           cp app/build/outputs/apk/release/app-release.apk Sistema.apk
 
