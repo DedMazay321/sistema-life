@@ -311,7 +311,7 @@ export default function App() {
 
   return <div className="app-shell">
     <aside className="sidebar">
-      <button className="brand" onClick={() => navigate('today')} aria-label="Система — на главную"><Rune small /><span>СИСТЕМА<small>SOLO LEVELING LIFE</small></span></button>
+      <button className="brand" onClick={() => navigate('today')} aria-label="Система — на главную"><Rune small /><span>СИСТЕМА<small>ИНТЕРФЕЙС ОХОТНИКА</small></span></button>
       <nav>{NAV.map(({ id, label, icon: Icon }) => <button className={page === id ? 'active' : ''} key={id} onClick={() => navigate(id)}><Icon size={19} /><span>{label}</span>{page === id && <ChevronRight size={15} />}</button>)}</nav>
       <div className="sidebar-bottom"><div className="mini-rank"><span>{level.rank}</span><div><small>ТЕКУЩИЙ РАНГ</small><strong>Уровень {level.level}</strong></div></div><p>Прокачивай не персонажа.<br />Прокачивай себя.</p></div>
     </aside>
@@ -321,6 +321,7 @@ export default function App() {
       <main className="content">
         {page === 'today' && <div className="page-enter">
           <section className="hero-panel">
+            <div className="hero-sigil" aria-hidden="true"><i /><i /><i /><b>✦</b></div>
             <div className="hero-copy"><p className="eyebrow"><span className="live-dot" /> ЕЖЕДНЕВНЫЙ ПРОТОКОЛ</p><p className="hero-date">{new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</p><h1>{dayComplete ? 'День покорён.' : isRest ? 'Восстановление — тоже прогресс.' : 'Стань сильнее, чем вчера.'}</h1><p className="hero-subtitle">{dayComplete ? 'Все обязательные задания закрыты. Система признаёт твою дисциплину.' : isRest ? 'День отдыха сохраняет серию без бонуса за полный день.' : 'Реальные действия. Измеримый результат. Никаких пустых обещаний.'}</p><div className="hero-stats"><div><Flame size={18} /><strong>{streak(state, day)}</strong><span>дней в серии</span></div><div><Zap size={18} /><strong>{state.totalXp}</strong><span>всего XP</span></div></div></div>
             <div className="level-orb" style={{ '--progress': `${(level.currentXp / level.neededXp) * 360}deg` } as CSSProperties}><div><small>УРОВЕНЬ</small><strong>{level.level}</strong><span>РАНГ {level.rank}</span></div></div>
             <div className="level-progress"><div><span>{level.currentXp} / {level.neededXp} XP</span><span>до {level.level + 1} уровня</span></div><ProgressBar value={(level.currentXp / level.neededXp) * 100} /></div>
